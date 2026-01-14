@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: aibot_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build: .
+    container_name: aibot_api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+      - ./celery_worker.py:/app/celery_worker.py
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+
+  celery_worker:
+    build: .
+    container_name: aibot_celery_worker
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+      - ./celery_worker.py:/app/celery_worker.py
+    command: celery -A celery_worker worker --loglevel=info
+    restart: unless-stopped
+
+  celery_beat:
+    build: .
+    container_name: aibot_celery_beat
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+      - ./celery_worker.py:/app/celery_worker.py
+    command: celery -A celery_worker beat --loglevel=info
+    restart: unless-stopped
+
+  telegram_bot:
+    build: .
+    container_name: aibot_telegram_bot
+    env_file:
+      - .env
+    volumes:
+      - ./app:/app/app
+      - ./aibot_session:/app/aibot_session
+    command: python -m app.telegram.bot
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+
