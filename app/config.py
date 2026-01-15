@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=ENV_PATH,
         env_file_encoding="utf-8",
+        extra="ignore",  # Игнорируем лишние переменные из .env
     )
 
     debug: bool = False
@@ -26,6 +27,11 @@ class Settings(BaseSettings):
     # telegram_channel_id: str = ""
 
     news_keywords: str = "python,fastapi,ai,django,нейросети,airogram"
+
+    # Дополнительные переменные из .env (если есть)
+    database_url: str = "sqlite:///./aibot.db"
+    celery_broker_url: str = ""
+    celery_result_backend: str = ""
 
     @property
     def keywords_list(self) -> list[str]:
