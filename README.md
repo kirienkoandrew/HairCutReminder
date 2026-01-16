@@ -1,4 +1,4 @@
-# AI Bot
+# Reminder Bot
 
 ## Описание:
 
